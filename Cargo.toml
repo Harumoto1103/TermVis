@@ -1,0 +1,18 @@
+[package]
+name = "term_video"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "term_video_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+crossterm = "0.29.0"
+flate2 = "1.0"
+pyo3 = { version = "0.21", features = ["extension-module"] }
+
+[dependencies.opencv]
+version = "0.98.2"
+default-features = false
+features = ["videoio", "imgproc"]

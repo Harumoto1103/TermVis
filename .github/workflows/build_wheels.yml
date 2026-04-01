@@ -1,0 +1,52 @@
+name: Build Wheels
+
+on:
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Build wheels on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        # 覆盖主流操作系统
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install OpenCV (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libopencv-dev clang libclang-dev
+
+      - name: Install OpenCV (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install opencv4:x64-windows
+          echo "OPENCV_LINK_PATHS=C:/vcpkg/installed/x64-windows/lib" >> $GITHUB_ENV
+          echo "OPENCV_LINK_LIBS=opencv_world4" >> $GITHUB_ENV
+
+      - name: Install OpenCV (macOS)
+        if: runner.os == 'macOS'
+        run: brew install opencv
+
+      - name: Build wheels
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist --interpreter python3.12
+          # 对于 Linux，使用 manylinux 确保最大兼容性
+          manylinux: auto
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: dist
