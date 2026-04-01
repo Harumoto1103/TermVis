@@ -13,25 +13,56 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # Build for major platforms
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust
+      - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build wheels
+      # Linux-specific build configuration
+      - name: Build wheels (Linux)
+        if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release --out dist
-          # We use abi3, so we don't need to specify multiple interpreters
           manylinux: 2_28
+          # Install build dependencies inside the manylinux container
           before-script-linux: |
             dnf install -y clang opencv-devel
 
-      - name: Upload wheels
+      # Windows-specific build configuration
+      - name: Build wheels (Windows)
+        if: runner.os == 'Windows'
+        uses: PyO3/maturin-action@v1
+        env:
+          # Use pre-installed OpenCV libs on Windows runners
+          OPENCV_LINK_LIBS: opencv_world4
+        with:
+          command: build
+          args: --release --out dist
+
+      # macOS-specific build configuration
+      - name: Install Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install opencv llvm
+          # Fix missing libclang.dylib issues by setting explicit paths
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "LDFLAGS=-L$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "CPPFLAGS=-I$(brew --prefix llvm)/include" >> $GITHUB_ENV
+
+      - name: Build wheels (macOS)
+        if: runner.os == 'macOS'
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist
+
+      - name: Upload built wheels as artifacts
         uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
@@ -40,16 +71,18 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
+    # Only publish when a version tag is pushed
     if: "startsWith(github.ref, 'refs/tags/v')"
     needs: [build_wheels]
     steps:
-      - uses: actions/download-artifact@v4
+      - name: Download all built wheels
+        uses: actions/download-artifact@v4
         with:
           pattern: wheels-*
           merge-multiple: true
           path: dist
 
-      - name: Publish to PyPI
+      - name: Upload to PyPI
         uses: PyO3/maturin-action@v1
         env:
           MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
