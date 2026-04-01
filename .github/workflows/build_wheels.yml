@@ -13,6 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # Building for standard OS runners
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
@@ -21,7 +22,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # Linux build: High-performance environment with AlmaLinux 8 (manylinux_2_28)
+      # Linux build: Using manylinux_2_28 (AlmaLinux 8)
       - name: Build wheels (Linux)
         if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
@@ -30,11 +31,12 @@ jobs:
         with:
           command: build
           args: --release --out dist
-          manycolor: 2_28
+          manylinux: 2_28
+          # Use yum for reliable package management in manylinux containers
           before-script-linux: |
-            dnf install -y clang-devel llvm-devel opencv-devel
+            yum install -y clang-devel llvm-devel opencv-devel
 
-      # Windows build: Utilizing vcpkg for reliable OpenCV linking
+      # Windows build: vcpkg ensures all DLLs and Libs are correctly matched
       - name: Install OpenCV (Windows)
         if: runner.os == 'Windows'
         run: |
@@ -44,13 +46,11 @@ jobs:
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         uses: PyO3/maturin-action@v1
-        env:
-          VCPKG_ROOT: C:/vcpkg
         with:
           command: build
           args: --release --out dist
 
-      # macOS build: Handling Homebrew paths for libclang and OpenCV
+      # macOS build: Homebrew-based environment with explicit clang linking
       - name: Install Dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
