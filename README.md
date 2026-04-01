@@ -1,4 +1,4 @@
-# TermVis
+# TermVis 🚀
 
 Watch video streams and monitor your CV models directly over SSH.
 
@@ -18,31 +18,64 @@ You're working on a remote GPU server via SSH. You have no X11 forwarding, no GU
 
 ```bash
 # Get the core engine
-pip install maturin
-maturin develop --release
+pip install termvis
 
 # Run a quick camera test
 python -c "import termvis; termvis.quick_play(0)"
 ```
 
+### API Reference 📚
+
+#### `TermVis` Class
+The main class for handling rendering and recording.
+
+- **`__enter__()` / `__exit__()`**
+  Context manager support. Automatically hides the cursor and enables the alternate buffer on entry, and restores terminal state on exit.
+  
+- **`render(frame_bgr: numpy.ndarray)`**
+  Renders an OpenCV-style BGR frame to the terminal. It handles color conversion and adaptive resizing automatically.
+
+- **`poll_key() -> str | None`**
+  Checks for keyboard input without blocking. Returns the key string (e.g., `'q'`, `'esc'`, `'enter'`) or `None` if no key was pressed.
+
+- **`start_recording(path: str)`**
+  Initializes a recording session. All subsequent `render()` calls will be saved to the specified `.lzdx` file using incremental compression.
+
+- **`stop_recording()`**
+  Ends the current recording session and flushes the file to disk.
+
+- **`play_recorded(path: str, sharpen: float = 0.3)`**
+  Plays back a `.lzdx` file.
+  - `path`: Path to the recording.
+  - `sharpen`: Strength of the DFT sharpening filter (recommended: `0.0` to `1.5`).
+
+- **`get_mapping_info() -> dict`**
+  Returns a dictionary containing terminal dimensions, rendering height, and original frame size. Useful for custom coordinate calculations.
+
+- **`map_coords(terminal_col: int, terminal_row: int) -> (int, int)`**
+  Translates terminal character coordinates (1-based) to the original video frame pixel coordinates. Essential for building interactive tools like remote desktops.
+
+#### Utility Functions
+- **`termvis.quick_play(source=0)`**
+  A high-level function to quickly start a camera or video file preview with basic controls ('q' to quit).
+
 ### Key Capabilities
 
-*   **Headless Remote Desktop**: Run the `remote_desktop.py` example to mirror your physical display into your SSH session. It supports mouse mapping, so clicking in your terminal actually clicks on the remote machine.
-*   **Lossless Recording**: The `.lzdx` format isn't just a video; it's a bit-perfect reconstruction of your terminal pixels. Great for logging training sessions.
-*   **Fourier Sharpening**: Use the `sharpen` parameter during playback to boost high-frequency details. It makes text and edges pop in terminal resolutions.
-*   **Mouse-to-Pixel Mapping**: Precise coordinate transformation that lets you build interactive terminal UIs.
+*   **Headless Remote Desktop**: See `examples/remote_desktop.py`. Mirror your physical display into SSH with mouse support.
+*   **Lossless Recording**: The `.lzdx` format provides bit-perfect reconstruction of terminal pixels with massive space savings.
+*   **Fourier Sharpening**: Boost high-frequency details on the fly to make text and edges pop in terminal resolutions.
 
-### Examples
+### Examples 💡
 
-Check the `examples/` directory:
-- `basic_demo.py`: The "Hello World" of terminal rendering.
-- `interactive_painter.py`: Test your mouse mapping by drawing on a 1080p canvas using terminal clicks.
-- `remote_desktop.py`: Control your desktop from a terminal.
+Check the `examples/` directory for more:
+- `basic_demo.py`: Simple rendering loop.
+- `interactive_painter.py`: Draw on a high-res canvas using terminal mouse clicks.
+- `remote_control_demo.py`: Python-side mouse event parsing and coordinate mapping.
 
 ### Technical Deep Dive
 - **Rendering**: Uses 24-bit ANSI escape codes and the Half-Block (`▀`) character to effectively double the vertical resolution.
-- **Compression**: Instead of standard video codecs, we XOR consecutive frames and Zlib the result. Since terminal backgrounds are often static, this hits massive compression ratios while remaining CPU efficient.
-- **Engine**: The sampling and bit-mangling are handled by a dedicated Rust crate linked via PyO3.
+- **Compression**: XOR consecutive frames and Zlib the result. Backgrounds remain static, leading to huge compression ratios.
+- **Engine**: Sampling and bit-mangling handled by a dedicated Rust core via PyO3.
 
 ### License
 MIT
