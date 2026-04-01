@@ -4,7 +4,7 @@ on:
   push:
     branches: [ master, main ]
     tags:
-      - 'v*' # 当推送 v0.1.0 这样的标签时触发发布
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -13,6 +13,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
+        # We build on Ubuntu, Windows, and macOS
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
@@ -21,29 +22,40 @@ jobs:
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Install OpenCV (Linux)
+      - name: Build wheels (Linux)
         if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y libopencv-dev clang libclang-dev
-
-      - name: Install OpenCV (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          vcpkg install opencv4:x64-windows
-          echo "OPENCV_LINK_PATHS=$VCPKG_INSTALLATION_ROOT/installed/x64-windows/lib" >> $GITHUB_ENV
-          echo "OPENCV_LINK_LIBS=opencv_world4" >> $GITHUB_ENV
-
-      - name: Install OpenCV (macOS)
-        if: runner.os == 'macOS'
-        run: brew install opencv
-
-      - name: Build wheels
         uses: PyO3/maturin-action@v1
         with:
           command: build
           args: --release --out dist --interpreter python3.8 python3.9 python3.10 python3.11 python3.12
-          manylinux: auto
+          # Use manylinux_2_28 for better compatibility with modern dependencies
+          manylinux: 2_28
+          # Install dependencies INSIDE the manylinux container
+          before-script-linux: |
+            dnf install -y clang opencv-devel
+
+      - name: Build wheels (Windows)
+        if: runner.os == 'Windows'
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist --interpreter python3.8 python3.9 python3.10 python3.11 python3.12
+        env:
+          # Windows runners already have vcpkg, we help the opencv crate find it
+          OPENCV_LINK_LIBS: opencv_world4
+          # Try to use pre-installed vcpkg if available to save time
+          VCPKG_ROOT: C:/vcpkg
+
+      - name: Build wheels (macOS)
+        if: runner.os == 'macOS'
+        run: brew install opencv
+      
+      - name: Build wheels (macOS action)
+        if: runner.os == 'macOS'
+        uses: PyO3/maturin-action@v1
+        with:
+          command: build
+          args: --release --out dist --interpreter python3.8 python3.9 python3.10 python3.11 python3.12
 
       - name: Upload wheels
         uses: actions/upload-artifact@v4
@@ -54,7 +66,7 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    if: "startsWith(github.ref, 'refs/tags/v')" # 仅在有版本标签时发布
+    if: "startsWith(github.ref, 'refs/tags/v')"
     needs: [build_wheels]
     steps:
       - uses: actions/download-artifact@v4
