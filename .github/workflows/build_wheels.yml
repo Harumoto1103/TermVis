@@ -1,8 +1,10 @@
-name: Build Wheels
+name: Build and Publish
 
 on:
   push:
     branches: [ master, main ]
+    tags:
+      - 'v*' # 当推送 v0.1.0 这样的标签时触发发布
   workflow_dispatch:
 
 jobs:
@@ -11,7 +13,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # 覆盖主流操作系统
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
@@ -30,7 +31,7 @@ jobs:
         if: runner.os == 'Windows'
         run: |
           vcpkg install opencv4:x64-windows
-          echo "OPENCV_LINK_PATHS=C:/vcpkg/installed/x64-windows/lib" >> $GITHUB_ENV
+          echo "OPENCV_LINK_PATHS=$VCPKG_INSTALLATION_ROOT/installed/x64-windows/lib" >> $GITHUB_ENV
           echo "OPENCV_LINK_LIBS=opencv_world4" >> $GITHUB_ENV
 
       - name: Install OpenCV (macOS)
@@ -41,8 +42,7 @@ jobs:
         uses: PyO3/maturin-action@v1
         with:
           command: build
-          args: --release --out dist --interpreter python3.12
-          # 对于 Linux，使用 manylinux 确保最大兼容性
+          args: --release --out dist --interpreter python3.8 python3.9 python3.10 python3.11 python3.12
           manylinux: auto
 
       - name: Upload wheels
@@ -50,3 +50,23 @@ jobs:
         with:
           name: wheels-${{ matrix.os }}
           path: dist
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    if: "startsWith(github.ref, 'refs/tags/v')" # 仅在有版本标签时发布
+    needs: [build_wheels]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          merge-multiple: true
+          path: dist
+
+      - name: Publish to PyPI
+        uses: PyO3/maturin-action@v1
+        env:
+          MATURIN_PYPI_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        with:
+          command: upload
+          args: --non-interactive --skip-existing dist/*
