@@ -1,81 +1,87 @@
-# TermVis 🚀
+# TermVis
 
-Watch video streams and monitor your CV models directly over SSH.
+Watch video streams and monitor CV models directly over SSH — no X11, no GUI required.
 
-High-performance terminal rendering with lossless incremental compression and frequency-domain sharpening. Built with Rust and OpenCV.
+Built with Rust + OpenCV. Renders frames as high-fidelity half-block characters with lossless incremental compression and Fourier sharpening.
 
 ---
 
-### Why?
-You're working on a remote GPU server via SSH. You have no X11 forwarding, no GUI, and no way to see what your computer vision model is actually looking at. Downloading frames one by one is slow, and streaming high-res video is impossible over a laggy connection.
+## Why
 
-**TermVis** solves this by:
-1. Converting video frames into high-fidelity ASCII/Half-block characters.
-2. Using a custom **LZDX** format (Delta-XOR + Zlib) to send only the changes between frames.
-3. Applying **DFT (Fourier) sharpening** on the fly so you can actually see details in a 80x24 terminal.
+When you're working on a remote GPU server via SSH, you have no way to see what your vision model is actually looking at. Downloading frames one by one is slow, and streaming high-res video over a laggy connection is painful.
 
-### Quick Start
+TermVis addresses this by:
+
+1. Converting video frames to half-block (`▀`) characters with 24-bit color, effectively doubling terminal vertical resolution.
+2. Compressing only the *diff* between frames using a Delta-XOR + Zlib scheme (`.lzdx` format), so static backgrounds cost almost nothing.
+3. Applying DFT (Fourier) sharpening on the fly to recover edge detail at terminal resolutions.
+
+## Install
 
 ```bash
-# Get the core engine
 pip install termvis
-
-# Run a quick camera test
-python -c "import termvis; termvis.quick_play(0)"
 ```
 
-### API Reference 📚
+## Quick Start
 
-#### `TermVis` Class
-The main class for handling rendering and recording.
+```python
+import termvis
 
-- **`__enter__()` / `__exit__()`**
-  Context manager support. Automatically hides the cursor and enables the alternate buffer on entry, and restores terminal state on exit.
-  
-- **`render(frame_bgr: numpy.ndarray)`**
-  Renders an OpenCV-style BGR frame to the terminal. It handles color conversion and adaptive resizing automatically.
+# Preview a webcam or video file
+termvis.quick_play(0)          # camera index
+termvis.quick_play("clip.mp4") # or a file path
+```
 
-- **`poll_key() -> str | None`**
-  Checks for keyboard input without blocking. Returns the key string (e.g., `'q'`, `'esc'`, `'enter'`) or `None` if no key was pressed.
+Press `q` to quit.
 
-- **`start_recording(path: str)`**
-  Initializes a recording session. All subsequent `render()` calls will be saved to the specified `.lzdx` file using incremental compression.
+## API
 
-- **`stop_recording()`**
-  Ends the current recording session and flushes the file to disk.
+### `TermVis` class
 
-- **`play_recorded(path: str, sharpen: float = 0.3)`**
-  Plays back a `.lzdx` file.
-  - `path`: Path to the recording.
-  - `sharpen`: Strength of the DFT sharpening filter (recommended: `0.0` to `1.5`).
+```python
+from termvis import TermVis
+```
 
-- **`get_mapping_info() -> dict`**
-  Returns a dictionary containing terminal dimensions, rendering height, and original frame size. Useful for custom coordinate calculations.
+Use as a context manager — it hides the cursor and switches to the alternate screen buffer on enter, and restores terminal state on exit.
 
-- **`map_coords(terminal_col: int, terminal_row: int) -> (int, int)`**
-  Translates terminal character coordinates (1-based) to the original video frame pixel coordinates. Essential for building interactive tools like remote desktops.
+```python
+with TermVis() as tv:
+    ...
+```
 
-#### Utility Functions
-- **`termvis.quick_play(source=0)`**
-  A high-level function to quickly start a camera or video file preview with basic controls ('q' to quit).
+| Method | Description |
+|--------|-------------|
+| `render(frame_bgr)` | Render an OpenCV BGR frame to the terminal. Handles color conversion and adaptive resizing. |
+| `poll_key()` | Non-blocking key read. Returns a string like `'q'`, `'esc'`, `'enter'`, or `None`. |
+| `start_recording(path)` | Start saving frames to a `.lzdx` file. |
+| `stop_recording()` | Flush and close the current recording. |
+| `play_recorded(path, sharpen=0.3)` | Play back a `.lzdx` recording. `sharpen` controls DFT filter strength (0.0–1.5). |
+| `get_mapping_info()` | Returns a dict with terminal dimensions, render height, and original frame size. |
+| `map_coords(col, row)` | Translate 1-based terminal character coordinates to original frame pixel coordinates. |
 
-### Key Capabilities
+### `quick_play(source=0)`
 
-*   **Headless Remote Desktop**: See `examples/remote_desktop.py`. Mirror your physical display into SSH with mouse support.
-*   **Lossless Recording**: The `.lzdx` format provides bit-perfect reconstruction of terminal pixels with massive space savings.
-*   **Fourier Sharpening**: Boost high-frequency details on the fly to make text and edges pop in terminal resolutions.
+High-level helper for camera or file preview. `q` to quit.
 
-### Examples 💡
+## Examples
 
-Check the `examples/` directory for more:
-- `basic_demo.py`: Simple rendering loop.
-- `interactive_painter.py`: Draw on a high-res canvas using terminal mouse clicks.
-- `remote_control_demo.py`: Python-side mouse event parsing and coordinate mapping.
+See the [`examples/`](examples/) directory:
 
-### Technical Deep Dive
-- **Rendering**: Uses 24-bit ANSI escape codes and the Half-Block (`▀`) character to effectively double the vertical resolution.
-- **Compression**: XOR consecutive frames and Zlib the result. Backgrounds remain static, leading to huge compression ratios.
-- **Engine**: Sampling and bit-mangling handled by a dedicated Rust core via PyO3.
+| File | What it shows |
+|------|---------------|
+| `basic_demo.py` | Minimal render loop |
+| `interactive_painter.py` | Draw on a high-res canvas using terminal mouse clicks |
+| `remote_control_demo.py` | Mouse event parsing and coordinate mapping |
+| `remote_desktop.py` | Mirror a physical display into SSH with mouse passthrough |
 
-### License
+## How it works
+
+**Rendering** — Each terminal cell holds two pixels stacked vertically via the `▀` half-block character, with independent 24-bit foreground/background colors. This doubles effective vertical resolution.
+
+**Compression** — Consecutive frames are XOR'd and the diff is zlib-compressed. Static regions compress to near-zero. The result is stored as `.lzdx` (Delta-XOR).
+
+**Engine** — Pixel sampling and byte manipulation run in a Rust core via PyO3, keeping the hot path off the Python GIL.
+
+## License
+
 MIT
