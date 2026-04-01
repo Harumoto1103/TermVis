@@ -1,4 +1,4 @@
-from .term_video_py import TermVis as _TermVis
+from ._termvis import TermVis as _TermVis
 import cv2
 
 class TermVis:

@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "termvis"
-version = "0.1.2"
+version = "0.1.3"
 description = "High-performance terminal video visualization and recording library."
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"
@@ -16,6 +16,5 @@ dependencies = [
 ]
 
 [tool.maturin]
-# This puts the compiled .so/.pyd file inside the termvis/ directory
-module-name = "termvis.term_video_py"
+module-name = "termvis._termvis"
 python-source = "."
