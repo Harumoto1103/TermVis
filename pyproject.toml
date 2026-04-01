@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "termvis"
-version = "0.1.3"
+version = "0.1.4"
 description = "High-performance terminal video visualization and recording library."
 authors = [{name = "Your Name", email = "your.email@example.com"}]
 readme = "README.md"

@@ -28,7 +28,6 @@ impl TermVis {
         }
     }
 
-    /// Starts a recording session at the specified path.
     fn start_recording(&mut self, path: String) -> PyResult<()> {
         let file = std::fs::File::create(path).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let mut writer = std::io::BufWriter::new(file);
@@ -37,10 +36,8 @@ impl TermVis {
         Ok(())
     }
 
-    /// Stops the current recording session.
     fn stop_recording(&mut self) { self.writer = None; }
 
-    /// Renders a raw RGB byte stream to the terminal and records it if a session is active.
     fn render(&mut self, data: Vec<u8>, width: i32, height: i32) -> PyResult<()> {
         self.last_frame_size = (width, height);
         let mut frame = unsafe {
@@ -64,7 +61,6 @@ impl TermVis {
         Ok(())
     }
 
-    /// Returns metadata for coordinate mapping between the terminal and the original frame.
     fn get_mapping_info(&self, py: Python<'_>) -> PyResult<PyObject> {
         let (term_w, term_h) = self.renderer.get_terminal_size();
         let dict = PyDict::new_bound(py);
@@ -77,7 +73,6 @@ impl TermVis {
         Ok(dict.to_object(py))
     }
 
-    /// Plays a recorded LZDX file with optional DFT sharpening.
     fn play(&self, path: String, sharpen: f32) -> PyResult<()> {
         let mut renderer = TerminalRenderer::new();
         self.recorder.play(&path, &mut renderer, sharpen)
@@ -85,15 +80,28 @@ impl TermVis {
         Ok(())
     }
 
-    /// Hides the terminal cursor and enables the alternate buffer.
     fn hide_cursor(&self) { self.renderer.hide_cursor(); }
-
-    /// Restores the terminal cursor and disables the alternate buffer.
     fn show_cursor(&self) { self.renderer.show_cursor(); }
+
+    fn poll_key(&self) -> PyResult<Option<String>> {
+        use crossterm::event::{self, Event, KeyCode};
+        if event::poll(std::time::Duration::from_millis(0)).unwrap() {
+            if let Event::Key(key) = event::read().unwrap() {
+                match key.code {
+                    KeyCode::Char(c) => return Ok(Some(c.to_string())),
+                    KeyCode::Esc => return Ok(Some("esc".to_string())),
+                    KeyCode::Enter => return Ok(Some("enter".to_string())),
+                    _ => {}
+                }
+            }
+        }
+        Ok(None)
+    }
 }
 
+/// This name MUST match the [lib] name in Cargo.toml
 #[pymodule]
-fn term_video_py(m: &Bound<'_, PyModule>) -> PyResult<()> {
+fn _termvis(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<TermVis>()?;
     Ok(())
 }
