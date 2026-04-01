@@ -23,6 +23,10 @@ class TermVis:
         h, w, _ = frame_rgb.shape
         self._inner.render(frame_rgb.tobytes(), w, h)
 
+    def get_mapping_info(self):
+        """Returns metadata for coordinate mapping."""
+        return self._inner.get_mapping_info()
+
     def map_coords(self, terminal_col, terminal_row):
         """Maps 1-based terminal coordinates to original frame pixel coordinates."""
         info = self._inner.get_mapping_info()
