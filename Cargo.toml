@@ -10,7 +10,12 @@ crate-type = ["cdylib"]
 [dependencies]
 crossterm = "0.29.0"
 flate2 = "1.0"
-pyo3 = { version = "0.21", features = ["extension-module"] }
+
+[dependencies.pyo3]
+version = "0.21"
+# abi3-py38 allows one wheel to work for Python 3.8+
+# generate-import-lib is required for Windows cross-compilation/linking
+features = ["extension-module", "abi3-py38", "generate-import-lib"]
 
 [dependencies.opencv]
 version = "0.98.2"
