@@ -7,33 +7,55 @@ import termios
 import threading
 import queue
 import select
-from mss import mss
-import pyautogui
+import os
 from termvis import TermVis
 
-# 关闭 pyautogui 的安全延迟以提高响应速度
+# FIX: Set DISPLAY for Linux SSH sessions before importing GUI libraries
+if sys.platform.startswith('linux') and 'DISPLAY' not in os.environ:
+    print("No DISPLAY found. Defaulting to :0.0 for local X session...")
+    os.environ['DISPLAY'] = ':0.0'
+
+try:
+    from mss import mss
+    import pyautogui
+except ImportError as e:
+    print(f"Missing dependencies: {e}")
+    print("Please run: pip install mss pyautogui")
+    sys.exit(1)
+except Exception as e:
+    print(f"Error initializing GUI libraries: {e}")
+    print("\nTroubleshooting for Linux/SSH:")
+    print("1. Make sure you are logged into a graphical session on the remote machine.")
+    print("2. Try running 'xhost +local:$(whoami)' on the physical machine's terminal.")
+    sys.exit(1)
+
+# Disable pyautogui safety delays for better responsiveness
 pyautogui.PAUSE = 0
 pyautogui.FAILSAFE = False
 
 def run_remote_desktop():
-    print("--- TermVis 终端远程桌面 (Beta) ---")
-    print("正在连接主屏幕...")
+    print("--- TermVis Remote Desktop (Beta) ---")
+    print("Connecting to main screen...")
     
-    # 1. 鼠标/键盘 捕获 ANSI 指令
+    # ANSI sequences for mouse/keyboard capture
     ENABLE_MOUSE = "\x1b[?1000h\x1b[?1006h"
     DISABLE_MOUSE = "\x1b[?1000l\x1b[?1006l"
 
-    sct = mss()
-    monitor = sct.monitors[1] # 主显示器
+    try:
+        sct = mss()
+        monitor = sct.monitors[1] # Primary monitor
+    except Exception as e:
+        print(f"Failed to capture screen: {e}")
+        print("Note: On macOS, your terminal might need 'Screen Recording' permissions.")
+        return
     
     event_queue = queue.Queue()
     stop_event = threading.Event()
 
     def input_worker():
-        """专门解析终端输入流的后台线程"""
+        """Background thread to parse terminal stdin stream."""
         while not stop_event.is_set():
             try:
-                # 检查是否有数据可读
                 r, _, _ = select.select([sys.stdin], [], [], 0.1)
                 if not r: continue
                 
@@ -50,12 +72,11 @@ def run_remote_desktop():
                             if c in 'Mm': break
                         event_queue.put(('mouse', full_seq))
                 else:
-                    # 模拟简单按键
                     event_queue.put(('key', char))
             except: break
 
     with TermVis() as tv:
-        # 准备终端环境
+        # Prepare terminal environment
         sys.stdout.write(ENABLE_MOUSE)
         sys.stdout.flush()
         old_settings = termios.tcgetattr(sys.stdin)
@@ -66,13 +87,12 @@ def run_remote_desktop():
         
         try:
             while True:
-                # 2. 截取物理屏幕
+                # 2. Grab physical screen
                 screenshot = sct.grab(monitor)
-                # 转换为 BGR (OpenCV 格式)
                 frame = np.array(screenshot)
                 frame = cv2.cvtColor(frame, cv2.COLOR_BGRA2BGR)
                 
-                # 3. 处理来自终端的反向控制事件
+                # 3. Handle reverse-control events from terminal
                 while not event_queue.empty():
                     ev_type, val = event_queue.get_nowait()
                     if ev_type == 'command' and val == 'quit':
@@ -82,30 +102,31 @@ def run_remote_desktop():
                         parts = val[:-1].split(';')
                         if len(parts) == 3:
                             col, row = int(parts[1]), int(parts[2])
-                            # 将终端点击映射到真实的物理屏幕像素坐标
+                            # Map terminal click to physical screen pixel coordinates
                             mx, my = tv.map_coords(col, row)
                             
-                            # 映射到 mss 的绝对坐标 (考虑显示器偏移)
+                            # Apply monitor offsets
                             screen_x = monitor["left"] + mx
                             screen_y = monitor["top"] + my
                             
-                            if val.endswith('M'): # 鼠标按下
-                                pyautogui.click(screen_x, screen_y)
-                                # 在反馈画面上画个圈，提示点击成功
-                                cv2.circle(frame, (mx, my), 50, (0, 0, 255), 5)
+                            if val.endswith('M'): # Mouse Down
+                                try:
+                                    pyautogui.click(screen_x, screen_y)
+                                    # Draw feedback on the frame
+                                    cv2.circle(frame, (mx, my), 50, (0, 0, 255), 5)
+                                except Exception as e:
+                                    print(f"\rClick failed: {e}", end="")
                     
                     elif ev_type == 'key':
-                        # 简单的字符输入模拟
-                        pyautogui.write(val)
+                        try:
+                            pyautogui.write(val)
+                        except: pass
 
-                # 4. 将屏幕画面渲染回终端
-                # 在画面顶部加个提示
+                # 4. Render back to terminal
                 cv2.putText(frame, f"REMOTE DESKTOP | {monitor['width']}x{monitor['height']}", 
                             (50, 100), cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 5)
                 
                 tv.render(frame)
-                
-                # 控制帧率，避免过度消耗 CPU
                 time.sleep(0.01)
                 
         except KeyboardInterrupt: pass
