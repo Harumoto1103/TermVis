@@ -1,6 +1,7 @@
 [package]
 name = "term_video"
-version = "0.1.4"
+version = "0.1.5"
+authors = ["Hou Un, Wong <harumoto1103@gmail.com>"]
 edition = "2024"
 
 [lib]
