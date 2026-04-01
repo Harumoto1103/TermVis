@@ -21,8 +21,7 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # Linux build: Using manylinux_2_28 (AlmaLinux 8 based)
-      # We install clang-devel and llvm-devel to ensure libclang.so is available
+      # Linux build: High-performance environment with AlmaLinux 8 (manylinux_2_28)
       - name: Build wheels (Linux)
         if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
@@ -31,30 +30,36 @@ jobs:
         with:
           command: build
           args: --release --out dist
-          manylinux: 2_28
+          manycolor: 2_28
           before-script-linux: |
             dnf install -y clang-devel llvm-devel opencv-devel
 
-      # Windows build: Ensure OpenCV is found
+      # Windows build: Utilizing vcpkg for reliable OpenCV linking
+      - name: Install OpenCV (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          vcpkg install opencv4:x64-windows
+          vcpkg integrate install
+
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         uses: PyO3/maturin-action@v1
         env:
-          OPENCV_LINK_LIBS: opencv_world4
+          VCPKG_ROOT: C:/vcpkg
         with:
           command: build
           args: --release --out dist
 
-      # macOS build: Fix libclang path for OpenCV-Rust bindings
+      # macOS build: Handling Homebrew paths for libclang and OpenCV
+      - name: Install Dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install opencv llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+
       - name: Build wheels (macOS)
         if: runner.os == 'macOS'
-        run: brew install opencv llvm
-      
-      - name: Build wheels (macOS action)
-        if: runner.os == 'macOS'
         uses: PyO3/maturin-action@v1
-        env:
-          LIBCLANG_PATH: /opt/homebrew/opt/llvm/lib
         with:
           command: build
           args: --release --out dist
