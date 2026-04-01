@@ -1,6 +1,6 @@
 [package]
 name = "term_video"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 
 [lib]
@@ -13,8 +13,6 @@ flate2 = "1.0"
 
 [dependencies.pyo3]
 version = "0.21"
-# abi3-py38 allows one wheel to work for Python 3.8+
-# generate-import-lib is required for Windows cross-compilation/linking
 features = ["extension-module", "abi3-py38", "generate-import-lib"]
 
 [dependencies.opencv]
