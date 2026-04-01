@@ -13,7 +13,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # Build for major platforms
         os: [ubuntu-latest, windows-latest, macos-latest]
 
     steps:
@@ -22,42 +21,40 @@ jobs:
       - name: Setup Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      # Linux-specific build configuration
+      # Linux build: Using manylinux_2_28 (AlmaLinux 8 based)
+      # We install clang-devel and llvm-devel to ensure libclang.so is available
       - name: Build wheels (Linux)
         if: runner.os == 'Linux'
         uses: PyO3/maturin-action@v1
+        env:
+          LIBCLANG_PATH: /usr/lib64
         with:
           command: build
           args: --release --out dist
           manylinux: 2_28
-          # Install build dependencies inside the manylinux container
           before-script-linux: |
-            dnf install -y clang opencv-devel
+            dnf install -y clang-devel llvm-devel opencv-devel
 
-      # Windows-specific build configuration
+      # Windows build: Ensure OpenCV is found
       - name: Build wheels (Windows)
         if: runner.os == 'Windows'
         uses: PyO3/maturin-action@v1
         env:
-          # Use pre-installed OpenCV libs on Windows runners
           OPENCV_LINK_LIBS: opencv_world4
         with:
           command: build
           args: --release --out dist
 
-      # macOS-specific build configuration
-      - name: Install Dependencies (macOS)
-        if: runner.os == 'macOS'
-        run: |
-          brew install opencv llvm
-          # Fix missing libclang.dylib issues by setting explicit paths
-          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
-          echo "LDFLAGS=-L$(brew --prefix llvm)/lib" >> $GITHUB_ENV
-          echo "CPPFLAGS=-I$(brew --prefix llvm)/include" >> $GITHUB_ENV
-
+      # macOS build: Fix libclang path for OpenCV-Rust bindings
       - name: Build wheels (macOS)
         if: runner.os == 'macOS'
+        run: brew install opencv llvm
+      
+      - name: Build wheels (macOS action)
+        if: runner.os == 'macOS'
         uses: PyO3/maturin-action@v1
+        env:
+          LIBCLANG_PATH: /opt/homebrew/opt/llvm/lib
         with:
           command: build
           args: --release --out dist
@@ -71,7 +68,6 @@ jobs:
   publish:
     name: Publish to PyPI
     runs-on: ubuntu-latest
-    # Only publish when a version tag is pushed
     if: "startsWith(github.ref, 'refs/tags/v')"
     needs: [build_wheels]
     steps:
