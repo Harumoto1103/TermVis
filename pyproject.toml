@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "termvis"
-version = "0.1.6"
+version = "0.1.9"
 description = "High-performance terminal video visualization and recording library."
 authors = [{name = "Hou Un, Wong", email = "harumoto1103@gmail.com"}]
 readme = "README.md"
