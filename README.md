@@ -76,6 +76,22 @@ See the [`examples/`](examples/) directory:
 | `remote_control_demo.py` | Mouse event parsing and coordinate mapping |
 | `remote_desktop.py` | Mirror a physical display into SSH with mouse passthrough |
 
+---
+
+## Remote Desktop Example
+
+You can use `TermVis` to mirror a physical display over SSH with mouse and keyboard passthrough. See [`examples/remote_desktop.py`](examples/remote_desktop.py).
+
+**Tip for high-res rendering:** Terminal resolution is dictated by font size. If you want to render a 1080p desktop, just shrink your terminal font size (`Cmd/Ctrl + -`). TermVis will automatically scale to the denser character grid, and the built-in Fourier sharpening keeps text and edges readable.
+
+> Demo showing a 1920x1080 desktop controlled via a terminal with minimized font size:
+>
+> ![Remote Desktop HD Demo](https://github.com/user-attachments/assets/placeholder-remote-desktop-hd)
+
+```bash
+python examples/remote_desktop.py
+```
+
 ## How it works
 
 **Rendering** — Each terminal cell holds two pixels stacked vertically via the `▀` half-block character, with independent 24-bit foreground/background colors. This doubles effective vertical resolution.
