@@ -86,7 +86,7 @@ You can use `TermVis` to mirror a physical display over SSH with mouse and keybo
 
 > Demo showing a 1920x1080 desktop controlled via a terminal with minimized font size:
 >
-> ![Remote Desktop HD Demo](https://github.com/user-attachments/assets/placeholder-remote-desktop-hd)
+> <video src="https://github.com/Harumoto1103/TermVis/raw/main/assets/remote_desktop_demo.mov" width="100%" controls></video>
 
 ```bash
 python examples/remote_desktop.py
