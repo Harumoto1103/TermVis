@@ -5,7 +5,7 @@ use pyo3::types::PyDict;
 use modules::renderer::TerminalRenderer;
 use modules::recorder::VideoRecorder;
 use opencv::core;
-use opencv::prelude::*;
+use opencv::prelude::MatTrait;
 
 /// Python wrapper for the TermVis library.
 #[pyclass(unsendable)]
@@ -29,9 +29,11 @@ impl TermVis {
     }
 
     fn start_recording(&mut self, path: String) -> PyResult<()> {
-        let file = std::fs::File::create(path).map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
+        let file = std::fs::File::create(path)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyIOError, _>(e.to_string()))?;
         let mut writer = std::io::BufWriter::new(file);
-        self.recorder.write_header(&mut writer).map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
+        self.recorder.write_header(&mut writer)
+            .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
         self.writer = Some(writer);
         Ok(())
     }
@@ -40,17 +42,20 @@ impl TermVis {
 
     fn render(&mut self, data: Vec<u8>, width: i32, height: i32) -> PyResult<()> {
         self.last_frame_size = (width, height);
+
+        // Allocate Mat and memcpy BGR bytes in (single Rust-side copy).
         let mut frame = unsafe {
             core::Mat::new_rows_cols(height, width, core::CV_8UC3)
                 .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?
         };
-        let mat_slice = unsafe { std::slice::from_raw_parts_mut(frame.data_mut() as *mut u8, data.len()) };
-        mat_slice.copy_from_slice(&data);
+        unsafe {
+            std::ptr::copy_nonoverlapping(data.as_ptr(), frame.data_mut(), data.len());
+        }
 
         let (term_w, term_h) = self.renderer.get_terminal_size();
         let char_map = self.renderer.prepare_character_map(&frame, term_w, term_h)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
-        
+
         self.renderer.render_character_map(&char_map)
             .map_err(|e| PyErr::new::<pyo3::exceptions::PyRuntimeError, _>(e.to_string()))?;
 
@@ -61,7 +66,7 @@ impl TermVis {
         Ok(())
     }
 
-    fn get_mapping_info(&self, py: Python<'_>) -> PyResult<PyObject> {
+    fn get_mapping_info(&mut self, py: Python<'_>) -> PyResult<PyObject> {
         let (term_w, term_h) = self.renderer.get_terminal_size();
         let dict = PyDict::new_bound(py);
         dict.set_item("term_w", term_w)?;

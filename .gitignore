@@ -1,2 +1,7 @@
 /target
 .DS_Store
+termvis/__pycache__/
+termvis/*.so
+termvis/*.dylib
+termvis/*.dSYM/
+*.lzdx

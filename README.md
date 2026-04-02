@@ -4,6 +4,8 @@ Watch video streams and monitor CV models directly over SSH — no X11, no GUI r
 
 Built with Rust + OpenCV. Renders frames as high-fidelity half-block characters with lossless incremental compression and Fourier sharpening.
 
+> Performance actively optimized with [Claude Code](https://claude.ai/code): dirty-rect rendering, raw pointer pixel access, pre-allocated ANSI buffers, and zero-copy compression paths.
+
 ---
 
 ## Why

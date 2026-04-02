@@ -5,7 +5,7 @@ class TermVis:
     """
     TermVis provides high-performance terminal video rendering and recording.
     """
-    
+
     def __init__(self):
         self._inner = _TermVis()
 
@@ -19,9 +19,8 @@ class TermVis:
 
     def render(self, frame_bgr):
         """Renders an OpenCV-style BGR frame to the terminal."""
-        frame_rgb = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2RGB)
-        h, w, _ = frame_rgb.shape
-        self._inner.render(frame_rgb.tobytes(), w, h)
+        h, w, _ = frame_bgr.shape
+        self._inner.render(frame_bgr.tobytes(), w, h)
 
     def get_mapping_info(self):
         """Returns metadata for coordinate mapping."""
