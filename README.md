@@ -84,9 +84,9 @@ You can use `TermVis` to mirror a physical display over SSH with mouse and keybo
 
 **Tip for high-res rendering:** Terminal resolution is dictated by font size. If you want to render a 1080p desktop, just shrink your terminal font size (`Cmd/Ctrl + -`). TermVis will automatically scale to the denser character grid, and the built-in Fourier sharpening keeps text and edges readable.
 
-> Demo showing a 1920x1080 desktop controlled via a terminal with minimized font size:
->
-> <video src="https://github.com/Harumoto1103/TermVis/raw/main/assets/remote_desktop_demo.mov" width="100%" controls></video>
+Demo showing a 1920x1080 desktop controlled via a terminal with minimized font size:
+
+<video src="https://github.com/Harumoto1103/TermVis/raw/main/assets/remote_desktop_demo.mov" width="100%" controls></video>
 
 ```bash
 python examples/remote_desktop.py
